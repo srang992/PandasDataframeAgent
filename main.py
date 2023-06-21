@@ -16,7 +16,7 @@ if os.path.exists(".env"):
 secret_key = os.getenv("OPENAI_API_KEY")
 
 
-def main(page: ft.Page):
+async def main(page: ft.Page):
     page.fonts = {
         "Product-Sans": "fonts/ProductSans-Regular.ttf"
     }
@@ -24,7 +24,7 @@ def main(page: ft.Page):
     page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
     page.padding = ft.padding.only(top=20, bottom=20, left=10, right=10)
     if page.session.contains_key("data"):
-        page.session.set("data", None)
+        await page.session.set("data", None)
 
     message_field = ft.Ref[ft.TextField]()
     send_button = ft.Ref[ft.Icon]()
@@ -32,39 +32,30 @@ def main(page: ft.Page):
     chat = ft.Ref[ft.ListView]()
     overlay_container = ft.Ref[ft.Container]()
 
-    def on_slash_click(e: ft.KeyboardEvent):
+    async def on_slash_click(e: ft.KeyboardEvent):
         if e.key == "/":
             message_field.current.focus()
-        elif e.ctrl and e.shift and e.key == "D":
-            page.splash = ft.ProgressBar()
-            page.update()
-            if os.path.exists("./uploads"):
-                for file in os.listdir("./uploads"):
-                    os.remove(f"./uploads/{file}")
-            sleep(1)
-            page.splash = None
-            page.update()
-            page.snack_bar = ft.SnackBar(
-                ft.Text("Data Successfully Removed!", font_family="Product-Sans"),
-                open=True
-            )
-        page.update()
+        await page.update_async()
 
-    def on_send(_):
+    async def on_send(_):
         data = page.session.get("data")
         if not message_field.current.value:
-            page.snack_bar = ft.SnackBar(
-                ft.Text("Message Field is Empty!", font_family="Product-Sans"),
-                open=True
+            await page.show_snack_bar_async(
+                snack_bar=ft.SnackBar(
+                    ft.Text("Message Field is Empty!", font_family="Product-Sans"),
+                    open=True
+                )
             )
-            page.update()
+            await page.update_async()
             return
         elif data is None:
-            page.snack_bar = ft.SnackBar(
-                ft.Text("Choose a file first!", font_family="Product-Sans"),
-                open=True
+            await page.show_snack_bar_async(
+                snack_bar=ft.SnackBar(
+                    ft.Text("Message Field is Empty!", font_family="Product-Sans"),
+                    open=True
+                )
             )
-            page.update()
+            await page.update_async()
             return
         else:
             chat.current.controls.append(
@@ -76,7 +67,7 @@ def main(page: ft.Page):
             )
             message, message_field.current.value = message_field.current.value, ""
             page.splash = ft.ProgressBar()
-            page.update()
+            await page.update_async()
             if len(chat.current.controls) != 0:
                 overlay_container.current.visible = False
             send_button.current.color = ft.colors.with_opacity(0.5, ft.colors.GREY)
@@ -98,9 +89,9 @@ def main(page: ft.Page):
                 )
             )
             page.splash = None
-            page.update()
+            await page.update_async()
 
-    def on_textfield_change(_):
+    async def on_textfield_change(_):
         if not message_field.current.value:
             send_button.current.color = ft.colors.with_opacity(0.5, ft.colors.GREY)
             send_button_container.current.disabled = True
@@ -109,9 +100,9 @@ def main(page: ft.Page):
             send_button.current.color = ft.colors.WHITE
             send_button_container.current.disabled = False
             send_button_container.current.bgcolor = ft.colors.GREEN
-        page.update()
+        await page.update_async()
 
-    def on_open(_):
+    async def on_open(_):
         upload_list = []
         if os.path.exists("./uploads"):
             if len(os.listdir("./uploads")):
@@ -122,34 +113,43 @@ def main(page: ft.Page):
                 upload_list.append(
                     ft.FilePickerUploadFile(
                         f.name,
-                        upload_url=page.get_upload_url(f.name, 600),
+                        upload_url=await page.get_upload_url_async(f.name, 600),
                     )
                 )
             page.splash = ft.ProgressBar()
-            page.update()
-            file_open.upload(upload_list)
+            await page.update_async()
+            await file_open.upload_async(upload_list)
             sleep(1)
             page.splash = None
             chat.current.controls.clear()
             overlay_container.current.visible = True
-            page.update()
+            await page.update_async()
             for file in os.listdir("./uploads"):
                 page.session.set("data", pd.read_csv(f"./uploads/{file}"))
-            page.snack_bar = ft.SnackBar(
-                ft.Text("Data Successfully Loaded!", font_family="Product-Sans"), open=True
+            await page.show_snack_bar_async(
+                snack_bar=ft.SnackBar(
+                    ft.Text("Data Successfully Loaded!", font_family="Product-Sans"),
+                    open=True
+                )
             )
         else:
-            page.snack_bar = ft.SnackBar(
-                ft.Text("Process Terminated!", font_family="Product-Sans"), open=True
+            await page.show_snack_bar_async(
+                snack_bar=ft.SnackBar(
+                    ft.Text("Process Terminated!", font_family="Product-Sans"),
+                    open=True
+                )
             )
-        page.update()
+        await page.update_async()
+
+    async def open_file(_):
+        await file_open.pick_files_async(allowed_extensions=["csv"])
 
     file_open = ft.FilePicker(on_result=on_open)
 
     page.overlay.append(file_open)
     page.on_keyboard_event = on_slash_click
 
-    page.add(
+    await page.add_async(
         ft.Stack(
             [
                 ft.ListView(
@@ -215,7 +215,7 @@ def main(page: ft.Page):
                         border_radius=35,
                         ink=True,
                         tooltip="Choose a File",
-                        on_click=lambda _: file_open.pick_files(allowed_extensions=["csv"])
+                        on_click=open_file
                     ),
                     ft.Container(
                         border_radius=6,
