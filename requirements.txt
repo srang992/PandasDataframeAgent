@@ -1,0 +1,8 @@
+flet
+websocket-client==1.5.3
+langchain
+openai
+tiktoken
+custom-flet
+ionicons-python
+python-dotenv
