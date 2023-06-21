@@ -114,11 +114,12 @@ def main(page: ft.Page):
     def on_open(_):
         global dataframe
         upload_list = []
+        if os.path.exists("./uploads"):
+            if len(os.listdir("./uploads")):
+                for file in os.listdir("./uploads"):
+                    os.remove(f"./uploads/{file}")
         if file_open.result is not None and file_open.result.files is not None:
             for f in file_open.result.files:
-                if len(os.listdir("./uploads")):
-                    for file in os.listdir("./uploads"):
-                        os.remove(f"./uploads/{file}")
                 upload_list.append(
                     ft.FilePickerUploadFile(
                         f.name,
@@ -253,5 +254,5 @@ ft.app(
     assets_dir="./assets",
     upload_dir="./uploads",
     view=ft.WEB_BROWSER,
-    port=3000,
+    port=8600,
 )
