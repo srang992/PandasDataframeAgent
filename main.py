@@ -51,7 +51,7 @@ async def main(page: ft.Page):
         elif data is None:
             await page.show_snack_bar_async(
                 snack_bar=ft.SnackBar(
-                    ft.Text("Message Field is Empty!", font_family="Product-Sans"),
+                    ft.Text("Choose File First!", font_family="Product-Sans"),
                     open=True
                 )
             )
