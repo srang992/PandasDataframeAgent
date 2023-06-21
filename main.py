@@ -253,5 +253,5 @@ ft.app(
     assets_dir="./assets",
     upload_dir="./uploads",
     view=ft.WEB_BROWSER,
-    port=8600,
+    port=3000,
 )

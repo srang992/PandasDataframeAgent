@@ -6,3 +6,4 @@ tiktoken
 custom-flet
 ionicons-python
 python-dotenv
+pandas
