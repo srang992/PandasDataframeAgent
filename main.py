@@ -132,6 +132,7 @@ def main(page: ft.Page):
             sleep(1)
             page.splash = None
             chat.current.controls.clear()
+            overlay_container.current.visible = True
             page.update()
 
             for file in os.listdir("./uploads"):
@@ -254,5 +255,5 @@ ft.app(
     assets_dir="./assets",
     upload_dir="./uploads",
     view=ft.WEB_BROWSER,
-    port=8600,
+    port=8655,
 )
