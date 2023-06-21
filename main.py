@@ -6,6 +6,7 @@ from chat_tile import ChatTile
 import pandas as pd
 from langchain.agents import create_pandas_dataframe_agent
 from langchain.llms import OpenAI
+from typing import Union
 import os
 from time import sleep
 
@@ -14,8 +15,7 @@ if os.path.exists(".env"):
     load_dotenv()
 
 secret_key = os.getenv("OPENAI_API_KEY")
-
-dataframe = None
+dataframe: Union[pd.DataFrame, None] = None
 
 
 def main(page: ft.Page):
