@@ -8,3 +8,4 @@ ionicons-python
 python-dotenv
 pandas
 tabulate
+fsspec

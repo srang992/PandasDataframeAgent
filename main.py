@@ -6,7 +6,6 @@ from chat_tile import ChatTile
 import pandas as pd
 from langchain.agents import create_pandas_dataframe_agent
 from langchain.llms import OpenAI
-from typing import Union
 import os
 from time import sleep
 
@@ -15,7 +14,6 @@ if os.path.exists(".env"):
     load_dotenv()
 
 secret_key = os.getenv("OPENAI_API_KEY")
-dataframe: Union[pd.DataFrame, None] = None
 
 
 def main(page: ft.Page):
@@ -25,6 +23,8 @@ def main(page: ft.Page):
     page.title = "Pandas Dataframe Agent"
     page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
     page.padding = ft.padding.only(top=20, bottom=20, left=10, right=10)
+    if page.session.contains_key("data"):
+        page.session.set("data", None)
 
     message_field = ft.Ref[ft.TextField]()
     send_button = ft.Ref[ft.Icon]()
@@ -51,7 +51,7 @@ def main(page: ft.Page):
         page.update()
 
     def on_send(_):
-        global dataframe
+        data = page.session.get("data")
         if not message_field.current.value:
             page.snack_bar = ft.SnackBar(
                 ft.Text("Message Field is Empty!", font_family="Product-Sans"),
@@ -59,7 +59,7 @@ def main(page: ft.Page):
             )
             page.update()
             return
-        elif dataframe is None:
+        elif data is None:
             page.snack_bar = ft.SnackBar(
                 ft.Text("Choose a file first!", font_family="Product-Sans"),
                 open=True
@@ -87,7 +87,7 @@ def main(page: ft.Page):
                     temperature=0,
                     openai_api_key=secret_key
                 ),
-                df=dataframe,
+                df=data,
             )
             response = agent.run(message)
             chat.current.controls.append(
@@ -112,7 +112,6 @@ def main(page: ft.Page):
         page.update()
 
     def on_open(_):
-        global dataframe
         upload_list = []
         if os.path.exists("./uploads"):
             if len(os.listdir("./uploads")):
@@ -134,10 +133,8 @@ def main(page: ft.Page):
             chat.current.controls.clear()
             overlay_container.current.visible = True
             page.update()
-
             for file in os.listdir("./uploads"):
-                dataframe = pd.read_csv(f"./uploads/{file}")
-
+                page.session.set("data", pd.read_csv(f"./uploads/{file}"))
             page.snack_bar = ft.SnackBar(
                 ft.Text("Data Successfully Loaded!", font_family="Product-Sans"), open=True
             )
