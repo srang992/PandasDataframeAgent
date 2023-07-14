@@ -1,12 +1,12 @@
 import flet as ft
 from ionicons_python.extra_icons import chatgpt_icon
-from ionicons_python.ionicons_icons import folder_open_outline_icon
-from custom_flet.components.custom_icon import CustomIcon
+from overlay_listview import OverlayListView
+from message_field import MessageField
 from chat_tile import ChatTile
 import pandas as pd
-from langchain.agents import create_pandas_dataframe_agent
-from langchain.llms import OpenAI
 import os
+from snack_bar import custom_snackbar
+from ask_lazypandas import ask_lazy_pandas
 from time import sleep
 
 if os.path.exists(".env"):
@@ -34,30 +34,32 @@ async def main(page: ft.Page):
 
     async def on_slash_click(e: ft.KeyboardEvent):
         if e.key == "/":
-            message_field.current.focus()
+            await message_field.current.focus_async()
         await page.update_async()
 
     async def on_send(_):
+        # getting data from the session
         data = page.session.get("data")
+
+        # check if the message field is empty
         if not message_field.current.value:
             await page.show_snack_bar_async(
-                snack_bar=ft.SnackBar(
-                    ft.Text("Message Field is Empty!", font_family="Product-Sans"),
-                    open=True
-                )
+                snack_bar=custom_snackbar("Message Field is Empty!")
             )
             await page.update_async()
             return
+
+        # check if any file is selected
         elif data is None:
             await page.show_snack_bar_async(
-                snack_bar=ft.SnackBar(
-                    ft.Text("Choose File First!", font_family="Product-Sans"),
-                    open=True
-                )
+                snack_bar=custom_snackbar("Choose File First!")
             )
             await page.update_async()
             return
+
+        # if everything is fine, send the message to the chatgpt
         else:
+            # adding user message to the list
             chat.current.controls.append(
                 ChatTile(
                     lead_image="images/my_image.jpg",
@@ -65,22 +67,25 @@ async def main(page: ft.Page):
                     subtitle_text=message_field.current.value
                 )
             )
+
+            # resetting the value of the textfield and saving the user text in another variable
             message, message_field.current.value = message_field.current.value, ""
+
+            # here the main process begins
             page.splash = ft.ProgressBar()
-            await page.update_async()
+
+            # resetting the textfield elements after adding the user message to the list
             if len(chat.current.controls) != 0:
                 overlay_container.current.visible = False
-            send_button.current.color = ft.colors.with_opacity(0.5, ft.colors.GREY)
-            send_button_container.current.disabled = True
-            send_button_container.current.bgcolor = ft.colors.TRANSPARENT
-            agent = create_pandas_dataframe_agent(
-                OpenAI(
-                    temperature=0,
-                    openai_api_key=secret_key
-                ),
-                df=data,
-            )
-            response = agent.run(message)
+                send_button.current.color = ft.colors.with_opacity(0.5, ft.colors.GREY)
+                send_button_container.current.disabled = True
+                send_button_container.current.bgcolor = ft.colors.TRANSPARENT
+            await page.update_async()
+
+            # sending message to the model
+            response = ask_lazy_pandas(message, data, secret_key)
+
+            # adding the response of the model in the list
             chat.current.controls.append(
                 ChatTile(
                     lead_image=chatgpt_icon,
@@ -88,6 +93,7 @@ async def main(page: ft.Page):
                     subtitle_text=response
                 )
             )
+
             page.splash = None
             await page.update_async()
 
@@ -127,17 +133,11 @@ async def main(page: ft.Page):
             for file in os.listdir("./uploads"):
                 page.session.set("data", pd.read_csv(f"./uploads/{file}"))
             await page.show_snack_bar_async(
-                snack_bar=ft.SnackBar(
-                    ft.Text("Data Successfully Loaded!", font_family="Product-Sans"),
-                    open=True
-                )
+                snack_bar=custom_snackbar("Data Successfully Loaded!")
             )
         else:
             await page.show_snack_bar_async(
-                snack_bar=ft.SnackBar(
-                    ft.Text("Process Terminated!", font_family="Product-Sans"),
-                    open=True
-                )
+                snack_bar=custom_snackbar("Process Terminated!")
             )
         await page.update_async()
 
@@ -150,107 +150,33 @@ async def main(page: ft.Page):
     page.on_keyboard_event = on_slash_click
 
     await page.add_async(
-        ft.Stack(
-            [
-                ft.ListView(
-                    expand=True,
-                    spacing=10,
-                    width=900,
-                    padding=10,
-                    auto_scroll=True,
-                    ref=chat
-                ),
-                ft.Container(
-                    content=ft.Column(
-                        [
-                            CustomIcon(
-                                chatgpt_icon,
-                                size=100,
-                                color=ft.colors.with_opacity(0.6, "grey"),
-                            ),
-                            ft.Text(
-                                "Choose a file and let's start talking.",
-                                size=17,
-                                font_family="Product-Sans",
-                                color=ft.colors.with_opacity(0.6, "grey")
-                            ),
-                        ],
-                        alignment=ft.MainAxisAlignment.CENTER,
-                        horizontal_alignment=ft.CrossAxisAlignment.CENTER
-                    ),
-                    alignment=ft.alignment.center,
-                    visible=True,
-                    ref=overlay_container
-                ),
-            ],
-            width=900,
-            expand=True
-        ),
-        ft.Container(
-            content=ft.Row(
+        ft.SafeArea(
+            content=ft.Column(
                 [
-                    ft.TextField(
-                        hint_text="Start typing...",
-                        text_style=ft.TextStyle(
-                            font_family="Product-Sans",
-                        ),
-                        hint_style=ft.TextStyle(
-                            font_family="Product-Sans",
-                            color=ft.colors.with_opacity(0.5, ft.colors.GREY)
-                        ),
-                        border_color=ft.colors.TRANSPARENT,
-                        max_lines=3,
-                        expand=True,
-                        on_change=on_textfield_change,
-                        on_submit=on_send,
-                        ref=message_field,
+                    OverlayListView(
+                        ref_listview=chat,
+                        ref_overlay=overlay_container,
                     ),
-                    ft.Container(
-                        content=ft.Image(
-                            src=folder_open_outline_icon,
-                            width=24,
-                            height=24,
-                        ),
-                        padding=8,
-                        border_radius=35,
-                        ink=True,
-                        tooltip="Choose a File",
-                        on_click=open_file
-                    ),
-                    ft.Container(
-                        border_radius=6,
-                        content=ft.Icon(
-                            ft.icons.SEND_ROUNDED,
-                            size=20,
-                            color=ft.colors.with_opacity(0.5, ft.colors.GREY),
-                            ref=send_button,
-                            tooltip="Send Message"
-                        ),
-                        padding=5,
-                        disabled=True,
-                        bgcolor=ft.colors.TRANSPARENT,
-                        ink=True,
-                        on_click=on_send,
-                        ref=send_button_container,
+                    MessageField(
+                        ref_message_field=message_field,
+                        ref_send_button=send_button,
+                        ref_send_button_container=send_button_container,
+                        on_file_open=open_file,
+                        on_click_send=on_send,
+                        on_press_enter=on_send,
+                        on_field_change=on_textfield_change,
                     ),
                 ],
             ),
-            shadow=ft.BoxShadow(
-                blur_radius=3,
-                blur_style=ft.ShadowBlurStyle.OUTER,
-                color=ft.colors.with_opacity(0.5, ft.colors.GREY)
-            ),
-            border_radius=8,
-            width=900,
-            padding=ft.padding.only(right=10),
-        )
+            expand=True
+        ),
     )
 
 
 ft.app(
     target=main,
-    assets_dir="./assets",
-    upload_dir="./uploads",
-    view=ft.WEB_BROWSER,
+    assets_dir="assets",
+    upload_dir="uploads",
+    view=ft.AppView.WEB_BROWSER,
     port=8655,
 )
